@@ -3,8 +3,6 @@ name: Build
 on:
   push:
   pull_request:
-  schedule:
-    - cron: "0 0 * * *"
 
 jobs:
   build:
@@ -12,24 +10,65 @@ jobs:
     container: ghcr.io/zephyrproject-rtos/ci:v0.26.2 
     env:
       CMAKE_PREFIX_PATH: /opt/toolchains
+    strategy:
+      matrix:
+        include:
+          - asset_name: at_client
+            project_folder: nrf/samples/cellular/at_client
+            project_board: thingy91x_nrf9161_ns
+          - asset_name: wifi_radio_test
+            project_folder: nrf/samples/wifi/radio_test
+            project_board: thingy91x_nrf9161_ns
+          - asset_name: wifi_scan
+            project_folder: nrf/samples/wifi/scan
+            project_board: thingy91x_nrf9161_ns
+          - asset_name: modem_shell
+            project_folder: nrf/samples/cellular/modem_shell
+            project_board: thingy91x_nrf9161_ns
+          - asset_name: nrf53_connectivity_bridge
+            project_folder: nrf/applications/connectivity_bridge
+            project_board: thingy91x_nrf5340_cpuapp_ns
+          - asset_name: serial_lte_modem
+            project_folder: nrf/applications/serial_lte_modem
+            project_board: thingy91x_nrf9161_ns
+          - asset_name: asset_tracker_v2
+            project_folder: nrf/applications/asset_tracker_v2
+            project_board: thingy91x_nrf9161_ns
+          - asset_name: flash_shell
+            project_folder: zephyr/samples/drivers/flash_shell
+            project_board: thingy91x_nrf9161_ns
     steps:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          path: example-application
+          path: project
 
       - name: Initialize
-        working-directory: example-application
+        working-directory: project
         run: |
           west init -l .
           west update -o=--depth=1 -n
 
-      - name: Build firmware
-        working-directory: example-application
+      - name: Install Python dependencies
         run: |
-          west twister -T app -v --inline-logs --integration
+          sudo pip3 install -U setuptools wheel pip
+          pip3 install ecdsa
 
-      - name: Twister Tests
-        working-directory: example-application
+      - name: Build
+        working-directory: ${{ matrix.project_folder }}
         run: |
-          west twister -T tests --integration
+          west build -b ${{ matrix.project_board }}
+
+      - name: Upload merged.hex to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ${{ matrix.project_folder }}/build/zephyr/merged.hex
+          asset_name: thingy91x_${{ matrix.asset_name }}_${{ github.sha }}_with_bl.hex
+
+      - name: Upload app_signed.hex to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ${{ matrix.project_folder }}/build/zephyr/app_signed.hex
+          asset_name: thingy91x_${{ matrix.asset_name }}_${{ github.sha }}_dfu.hex

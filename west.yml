@@ -6,12 +6,12 @@ manifest:
     west-commands: scripts/west-commands.yml
 
   remotes:
-    - name: ncs
-      url-base: https://github.com/nrfconnect
+    - name: maxd
+      url-base: https://github.com/maxd-nordic
 
   projects:
     - name: nrf
-      remote: ncs
+      remote: maxd
       repo-path: sdk-nrf
-      revision: main
+      revision: thingy91x_board
       import: true
